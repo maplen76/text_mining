@@ -1,10 +1,15 @@
 
 # 2 Sentiment Anaylysis with tidy data
-##2.2 Sentiment analysis
+## 2.1 The sentments dataset
+# 3lexicons
+# nrc categorizes words in a binary fashion (yes/no) into categories of postive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, trust
+# bing categorizes words in a binary fashion into positive and nagative categories
+# afinn assigns words with a score that runs between -5 and 5, with negative scores inidcating negative sentiment and positive scores indicating positive snetiments
+
+## 2.2 Sentiment analysis
 library(janeaustenr)
 library(dplyr)
 library(stringr)
-
 
 tidy_books <- austen_books() %>%
     group_by(book) %>%
@@ -18,12 +23,10 @@ tidy_books <- austen_books() %>%
 nrcjoy <- get_sentiments("nrc") %>%
     filter(sentiment == "joy")
 
-
 tidy_books %>%
     filter(book == "Emma") %>%
     inner_join(nrcjoy) %>%
     count(word, sort = T)
-    
 
 library(tidyr)
 janeaustensentiment <- tidy_books %>%
