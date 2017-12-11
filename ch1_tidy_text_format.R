@@ -1,26 +1,14 @@
-# how to use unnest_tokens
-text <- c("Because I could not stop for Death -",
-          "He kindly stopped for me -",
-          "The Carriage held but just Ourselves -",
-          "and Immortality")
-
-library(dplyr)
-text_df <- data_frame(line = 1:4, text = text)
-
 library(tidytext)
-
-text_df %>%
-
-unnest_tokens(tbl = text_df, output = word, input = text, token = "lines")
-    
-    unnest_tokens(word,text)
-
-# 1.3 Tidying the works of Jane Austen
-# tidying the works of Jan Austen
 library(janeaustenr)
 library(dplyr)
 library(stringr)
 library(tidytext)
+library(ggplot2)
+library(ggthemes)
+
+# how to use unnest_tokens to reach the format 1-token-per-row
+# 1.3 Tidying the works of Jane Austen
+# tidying the works of Jan Austen
 
 original_books <- austen_books() %>%
     group_by(book) %>%
@@ -32,11 +20,11 @@ original_books <- austen_books() %>%
            ) %>%
     ungroup()
 
-# tokenizations
+# tokenizations (1-token-per-row)
 tidy_books <- original_books %>%
     unnest_tokens(word, text)
 
-# remove stop words such as  “the”, “of”, “to”, etc
+# remove stop words such as the, of, to, etc
 tidy_books <- tidy_books%>%
     anti_join(stop_words, by = "word")
 
@@ -45,8 +33,6 @@ tidy_books %>%
     count(word, sort = T)
 
 # visualize the most used word
-library(ggplot2)
-
 tidy_books %>%
     count(word, sort = T) %>%
     filter(n > 600) %>%
@@ -55,12 +41,3 @@ tidy_books %>%
     geom_col() +
     xlab(NULL) +
     coord_flip()
-
-# 1.4 the gutenbergr package
-install.packages("gutenbergr")
-
-
-# 1.5 Word Frequencies
-library(gutenbergr)
-
-hgwells <- gutenberg_download(c(35, 36, 5230, 159))
