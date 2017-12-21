@@ -133,3 +133,11 @@ for (i in 1:ceiling(nb_reviews/10)) {
 # close the server/client
 remDr$close()
 
+review_table$date <- as.Date(review_table$date,'%m/%d/%Y')
+
+review_table %>% 
+    group_by(date) %>%
+    summarise(rating = mean(star)) %>%
+    ungroup()
+
+
