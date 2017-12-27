@@ -1,10 +1,10 @@
 
-# manually start selenium server
-# D:\software>java -Dwebdriver.gecko.driver="D:\software\geckodriver.exe" -jar selenium-server-standalone-3.8.1.jar
-# D:\software>java -Dwebdriver.gecko.driver="D:\software\chromedriver.exe" -jar selenium-server-standalone-3.8.1.jar
+# download web drivers from https://cran.r-project.org/web/packages/RSelenium/vignettes/RSelenium-saucelabs.html#id1aa
+# download selenium stand alone driver from https://goo.gl/hvDPsK or http://selenium-release.storage.googleapis.com/index.html
 
-# D:\software>java -Dwebdriver.gecko.driver="D:\software\IEDriverServer.exe" -jar selenium-server-standalone-3.8.1.jar
-# IE is available finally
+# there is another way to start Rselenium server, but need to connect gaming gateway at first
+# rD <- rsDriver(verbose = F, browser = "firefox", port = 4555L)
+# remDr <- rD$client
 
 library(dplyr)
 library(RSelenium)
@@ -12,8 +12,11 @@ library(stringr)
 library(XML)
 library(rvest)
 
-# connect local server
-remDr <- remoteDriver(browserName = "internet explorer")
+library(RSelenium)
+shell.exec(paste0("D:/Rselenium/StartRselenium.bat")) # have to cd the location where drivers stored when create bat file
+Sys.sleep(5)
+
+remDr <- remoteDriver(browserName = "internet explorer") # only IE works fine
 remDr$open()
 remDr$navigate("https://www.microsoft.com/en-us/store/p/wheel-of-fortune/br76vbtv0nk0")
 
