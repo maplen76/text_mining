@@ -1,22 +1,21 @@
-
 # download web drivers from https://cran.r-project.org/web/packages/RSelenium/vignettes/RSelenium-saucelabs.html#id1aa
 # download selenium stand alone driver from https://goo.gl/hvDPsK or http://selenium-release.storage.googleapis.com/index.html
 
 # there is another way to start Rselenium server, but need to connect gaming gateway at first
-# rD <- rsDriver(verbose = F, browser = "firefox", port = 4555L)
+# rD <- rsDriver(verbose = T, browser = "internet explorer")
 # remDr <- rD$client
 
 library(dplyr)
-library(RSelenium)
 library(stringr)
 library(XML)
 library(rvest)
-
 library(RSelenium)
-shell.exec(paste0("D:/Rselenium/StartRselenium.bat")) # have to cd the location where drivers stored when create bat file
+
+# have to cd the location where drivers stored when create bat file
+shell.exec(paste0("D:/Rselenium/StartRseleniumFirefox.bat")) # start local selenium server
 Sys.sleep(5)
 
-remDr <- remoteDriver(browserName = "internet explorer") # only IE works fine
+remDr <- remoteDriver(browserName = "firefox") # only IE internet explorer works fine
 remDr$open()
 remDr$navigate("https://www.microsoft.com/en-us/store/p/wheel-of-fortune/br76vbtv0nk0")
 
@@ -62,50 +61,65 @@ nb_reviews <- remDr$findElement(using = 'class', "context-pagination")$getElemen
     str_extract_all(pattern =' \\d+ ') %>%
     as.numeric()
 
+page_list <- c()
+for (i in 1:ceiling(nb_reviews/10)) {
+    left <- i*10 - 9
+    right <- ifelse(i*10 > nb_reviews, nb_reviews, i*10)
+    page_list <- c(page_list, paste0(left,"-",right))
+}
+
  path_review <- '//*[@id="reviewsPagingSection"]/div[3]/div['
- path_review_user <-    ']/div[1]/p[2]'
- path_review_date <-    ']/div[1]/p[1]'
- path_review_star <-    ']/div[1]/div/p/span[1]'
- path_review_title <-   ']/div[2]/div[1]/h5'
- path_review_detail <-  ']/div[2]/div[1]/div[1]/p[1]'
- path_review_helpful <- ']/div[2]/div[2]/p'
+ path_user <-    ']/div[1]/p[2]'
+ path_date <-    ']/div[1]/p[1]'
+ path_star <-    ']/div[1]/div/p/span[1]'
+ path_title <-   ']/div[2]/div[1]/h5'
+ path_detail <-  ']/div[2]/div[1]/div[1]/p[1]'
+ path_helpful <- ']/div[2]/div[2]/p'
+
+review_attr <- c("user", "date", "star", "title", "detail", "helpful")
  
 # ceiling(nb_reviews/10)
+review_table  <- data.frame()
 
 for (i in 1:ceiling(nb_reviews/10)) {
+    
     pg <- remDr$findElement(using = 'class', "context-pagination")$getElementText() %>%
         as.character() %>%
         str_extract_all(pattern ='\\d+-\\d+') %>%
         as.character()
     
-    j <- 1 # identifier of each reviews on each page (each page have at most 10 reviews)
+    print(pg)
     
-    repeat {
+    # identify number of reviews on current page
+    nb_reviews_page <- length(remDr$findElements(using = "class", "cli_review"))
+    
+    for (j in 1:nb_reviews_page) {
         
         review_id <- as.character(j)
+        print(paste0(pg,": ",review_id))
         
-        review_user <- remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_user))$getElementText() %>%
-            as.character()
+        # extract value of each attribute
+        for (i in review_attr) {
+            
+            metric_review_xxx <- paste0("review_", i)
+            path_attr <- eval(parse(text = paste0("path_",i)))
+            
+            if (i == "star") {
+                # use getElementAttribute("textContent") to get invisible text
+                value <-  remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_attr))$getElementAttribute("textContent") %>%
+                    as.numeric()
+                assign(metric_review_xxx, value)
+            } else {
+                value <- remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_attr))$getElementText() %>%
+                    as.character()
+                assign(metric_review_xxx, value)        
+            }
+        }
         
-        review_date <-  remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_date))$getElementText() %>%
-            as.character()
-        
-        # use getElementAttribute("textContent") to get invisible text
-        review_star <-  remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_star))$getElementAttribute("textContent") %>%
-            as.numeric()
-        
-        review_title <- remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_title))$getElementText() %>%
-            as.character()
-        
-        review_detail <-  remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_detail))$getElementText() %>%
-            as.character()
-        
-        review_helpful <-  remDr$findElement(using = 'xpath', paste0(path_review,review_id,path_review_helpful))$getElementText() %>%
-            as.character()
-        
+        # create data frame to store all attributes
         comments <- data.frame(page = pg,
-                               user = review_user, 
-                               date = review_date, 
+                               user = review_user,
+                               date = review_date,
                                star = review_star,
                                title = review_title,
                                detail = review_detail,
@@ -113,23 +127,23 @@ for (i in 1:ceiling(nb_reviews/10)) {
                                stringsAsFactors = F
         )
         
+        # store reviews into data frame review_table
         review_table <- rbind.data.frame(review_table, comments)
-        
-        j <- j + 1
-        
-        if (length(review_user) == 0 | j > 10) {
-            break
-        }
     }
     
-    # navigte to next page
-    next_button <- remDr$findElement(using = 'id', value = "reviewsPageNextAnchor")
+    next_button <- remDr$findElement(using = 'css selector', value = "#reviewsPageNextAnchor")
+    
+    # injecting JavaScrript to scroll the page down to the next_buton location
+    script <- 'arguments[0].scrollIntoView(true)'
+    remDr$executeScript(script = script,args = list(next_button) )
+    
+    # alternate method to scroll page to bottom
+    # top when key = "home"; scroll just a bit when key = "down_arrow"
+    # next_button$sendKeysToElement(list(key = "end"))  
+    
     remDr$mouseMoveToLocation(webElement = next_button)
-    remDr$click(1)
-    remDr$sendKeysToActiveElement(list(key = 'down_arrow', key = 'down_arrow', key = 'enter'))
-    
-    Sys.sleep(20) # wait 20 seconds to loading next page
-    
+    remDr$click(0)
+    Sys.sleep(30)
 }
 
 
@@ -142,5 +156,3 @@ review_table %>%
     group_by(date) %>%
     summarise(rating = mean(star)) %>%
     ungroup()
-
-
