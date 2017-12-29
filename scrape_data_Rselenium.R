@@ -4,18 +4,20 @@
 # there is another way to start Rselenium server, but need to connect gaming gateway at first
 # rD <- rsDriver(verbose = T, browser = "internet explorer")
 # remDr <- rD$client
+setwd('F:\\Console_WOF\\RApps\\wof_store_rating')
 
-library(dplyr)
+library(dplyr, verbose = F)
 library(stringr)
 library(XML)
-library(rvest)
+library(rvest, verbose = F)
 library(RSelenium)
 
+# IE solution
 # have to cd the location where drivers stored when create bat file
-shell.exec(paste0("D:/Rselenium/StartRseleniumFirefox.bat")) # start local selenium server
+shell.exec(paste0("D:/Rselenium/StartRseleniumIE.bat")) # start local selenium server
 Sys.sleep(5)
 
-remDr <- remoteDriver(browserName = "firefox") # only IE internet explorer works fine
+remDr <- remoteDriver(browserName = "internet explorer") # only IE internet explorer works fine
 remDr$open()
 remDr$navigate("https://www.microsoft.com/en-us/store/p/wheel-of-fortune/br76vbtv0nk0")
 
@@ -139,20 +141,30 @@ for (i in 1:ceiling(nb_reviews/10)) {
     
     # alternate method to scroll page to bottom
     # top when key = "home"; scroll just a bit when key = "down_arrow"
-    # next_button$sendKeysToElement(list(key = "end"))  
+    # next_button$sendKeysToElement(list(key = "end"))
     
     remDr$mouseMoveToLocation(webElement = next_button)
-    remDr$click(0)
+    remDr$click(buttonId = 0)
     Sys.sleep(30)
 }
 
+print(review_table)
 
 # close the server/client
 remDr$close()
 
 review_table$date <- as.Date(review_table$date,'%m/%d/%Y')
 
-review_table %>% 
+review_trending <- review_table %>% 
     group_by(date) %>%
     summarise(rating = mean(star)) %>%
     ungroup()
+
+ggplot(data = review_trending, aes(x = date, y = rating)) +
+    geom_line(size = 1, color = "blue") +
+    scale_y_continuous(limits = c(0, NA)) +
+    ylab("Rating") +
+    theme(axis.title.x = element_blank())
+
+
+
