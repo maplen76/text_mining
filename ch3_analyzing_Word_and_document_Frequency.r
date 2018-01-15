@@ -1,15 +1,19 @@
+library(dplyr)
+library(janeaustenr)
+library(tidytext)
+
 ## 3.1 Term frequency in Jane Austen's novels
 
 book_words <- austen_books() %>%
     unnest_tokens(word, text) %>%
     count(book,word, sort = T) %>%
-    ungroup()
-
-total_words <- book_words %>%
+    ungroup() %>%
     group_by(book) %>%
-    summarise(total = sum(n))
-
-book_words <- left_join(book_words, total_words)
+    mutate(total = sum(n)) %>%
+    ungroup() %>%
+    group_by(book) %>%
+    arrange(book,desc(n)) %>%
+    ungroup()
 
 ggplot(data = book_words, aes(n/total, fill = book)) +
     geom_histogram(show.legend = F) +
