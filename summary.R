@@ -790,4 +790,22 @@ wrong_words %>%
 word_counts %>%
     filter(word == "flopson")                                                   # "flopson" never appear in "Pride and Prejudice" but it's assigned to
 
+# 6.3 Alternative LDA implementations
+library(mallet)
+
+# create a vector with one string per chapter
+collapsed <- by_chapter_word %>%
+  anti_join(stop_words, by = "word") %>%
+  mutate(word = str_replace(word, "'", "")) %>%
+  group_by(document) %>%
+  summarize(text = paste(word, collapse = " "))
+
+# create an empty file of "stopwords"
+file.create(empty_file <- tempfile())
+docs <- mallet.import(collapsed$document, collapsed$text, empty_file)
+
+mallet_model <- MalletLDA(num.topics = 4)
+mallet_model$loadDocuments(docs)
+mallet_model$train(100)
+
 
