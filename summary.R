@@ -2,7 +2,6 @@ library(tidytext)
 library(janeaustenr)
 library(dplyr)
 library(stringr)
-library(tidytext)
 library(ggplot2)
 library(ggthemes)
 
