@@ -59,21 +59,20 @@ review_words <- review_words %>%
     filter(!word %in% stop_words$word)
 
 # 
-review_words %>%
-    count(word, sort = T)
+wds <-review_words %>%
+    count(review_id,word, sort = T) %>%
+    arrange(word)
 
 review_words_count <- review_words %>%
-    count(review_id, word, sort = TRUE) %>%
-    ungroup
-
+    count(review_id, word, sort = TRUE)
+    
 review_dtm <- review_words_count %>%
     cast_dtm(review_id, word, n)
 
 library(topicmodels)
-review_lda <- LDA(review_dtm, k = 4, control = list(seed = 1234))
+review_lda <- LDA(review_dtm, k = 3, control = list(seed = 1234))
 
 review_topic <- tidy(review_lda, matrix = "beta")
-
 
 
 
