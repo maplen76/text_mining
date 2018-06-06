@@ -1,16 +1,30 @@
+library(dplyr, verbose = F)
+library(stringr)
 library(RSelenium)
-shell.exec(paste0("D:/Rselenium/StartRseleniumFirefox.bat")) # start local selenium server
-Sys.sleep(5)
+# start local selenium server, it don't work when connect server from inside R
+# have to start selenium server with task schedule at first
+# shell.exec(paste0("file:///D:/Rselenium/StartRseleniumFirefox.bat")) 
+# Sys.sleep(10)
 
 # have to install the lastest Rtools from https://cran.r-project.org/bin/windows/Rtools/ at first
 # shut down R and restart computer
-fprof <- makeFirefoxProfile(list("network.proxy.type" = 4L)) # set the firefox connection setting as Auto-detext proxy settins
+fprof <- makeFirefoxProfile(list("network.proxy.type" = 4L)) # build new firefox with connection setting as Auto-detext proxy settins
 remDr <- remoteDriver(extraCapabilities = fprof)
 remDr$open()
 
-remDr <- remoteDriver(browserName = "firefox") # only IE internet explorer works fine
-remDr$open()
-remDr$navigate("https://www.microsoft.com/en-us/store/p/wheel-of-fortune/br76vbtv0nk0")
+# remDr <- remoteDriver(browserName = "firefox")
+# remDr$open()
+url_store <- "https://www.microsoft.com/en-us/p/wheel-of-fortune/br76vbtv0nk0?activetab=pivot:reviewstab"
+remDr$navigate(url_store)
+
+# to hide the dialog box
+remDr$mouseMoveToLocation(x = 1,y = 1)
+remDr$click(buttonId = 0)
+remDr$click(buttonId = 0)
+remDr$click(buttonId = 0)
+remDr$click(buttonId = 0)
+remDr$click(buttonId = 0)
+
 
 # scrape overall Ratings and Reviews
 Rating_xbox_store <- 
@@ -61,12 +75,12 @@ for (i in 1:ceiling(nb_reviews/10)) {
     page_list <- c(page_list, paste0(left,"-",right))
 }
 
-path_review <- '//*[@id="reviewsPagingSection"]/div[3]/div['
+path_review <-  '//*[@id="reviewsPagingSection"]/div[5]/div[' # old xpath header before 4/19/2018: '//*[@id="reviewsPagingSection"]/div[3]/div['
 path_user <-    ']/div[1]/p[2]'
 path_date <-    ']/div[1]/p[1]'
 path_star <-    ']/div[1]/div/p/span[1]'
 path_title <-   ']/div[2]/div[1]/h5'
-path_detail <-  ']/div[2]/div[1]/div[1]/p[1]'
+path_detail <-  ']/div[2]/div[1]/div' # old xpath header before 4/19/2018: ']/div[2]/div[1]/div[1]/p[1]'
 path_helpful <- ']/div[2]/div[2]/p'
 
 review_attr <- c("user", "date", "star", "title", "detail", "helpful")
@@ -135,14 +149,14 @@ for (i in 1:ceiling(nb_reviews/10)) {
     # next_button$sendKeysToElement(list(key = "end"))
     
     remDr$mouseMoveToLocation(webElement = next_button)
-    remDr$click(buttonId = 0)
-    Sys.sleep(30)
+    remDr$doubleclick(buttonId = 0) # double click works fine for firefox
+    Sys.sleep(15)
 }
-
-print(review_table)
 
 # close the server/client
 remDr$close()
 
-
+# close taskend.exe by command running within R
+system('taskkill /fi "WindowTitle eq taskeng.exe"')
+print("success: scraping data from web")
 
