@@ -20,7 +20,7 @@ separator <- worker()
 
 
 # read reivew file #
-reviews <- read.xlsx(file = "F:\\PoC\\PoCRawData\\fh_output+20180522_2\\Review_Level.xlsx",
+reviews <- read.xlsx(file = "Review.xlsx",
                      sheetName = "Sheet1",
                      stringsAsFactors = FALSE,
                      encoding = "UTF-8")
