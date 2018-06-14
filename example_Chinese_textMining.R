@@ -33,8 +33,21 @@ reviews_tbl <- reviews %>%
     filter(nchar(review_new, type = "bytes") > 2)                             # remove review with 2 bytes 
 
 # user jiebaR to split words
+# build function to orgnize word by n consecutive word
+paste_n <- function(t, n = 2) {
+    t <- t
+    f <- vector()
+    for (i in 1:(length(t) - n + 1)) {
+        f[i] <- paste0(t[i:(i+n-1)], collapse = "_")
+    }
+    return(f)
+}
+
+
 for (i in 1:nrow(reviews_tbl)) {
-    a <- paste0(separator <= reviews_tbl$review_new[i], collapse = " ")
+    s <- separator <= reviews_tbl$review_new[i]
+    s <- paste_n(s, n = 2)
+    a <- paste0(s, collapse = " ")
     reviews_tbl$text[i] <- a
     
     if (i == nrow(reviews_tbl)) {
