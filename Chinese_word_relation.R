@@ -3,6 +3,9 @@ library(tidyverse)
 library(openxlsx)
 Sys.setlocale(category = "LC_ALL", locale = "chs")
 
+# Sys.setlocale("LC_ALL", "zh_cn.utf-8")                                        # set local for macOS    
+
+
 # separator$bylines = TRUE # 分行输出
 # separator$bylines = TRUE # 分行输出
 # segment(tt, jiebar = separator)
@@ -64,6 +67,7 @@ reviews_tbl <- reviews_tbl %>%
 # build special tokenizer function to unnest
 library(tidytext)
 library(tidyr)
+library(stringr)
 
 tok99 = function(t) str_split(t,"[ ]{1,}")
 review_words_2 <- reviews_tbl %>%
