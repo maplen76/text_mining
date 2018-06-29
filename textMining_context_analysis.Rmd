@@ -1,0 +1,210 @@
+---
+title: "Keyword Context Analysis"
+date: "June 28, 2018"
+output: 
+    html_document:
+        theme: flatly
+        df_print: paged
+---
+
+*data source: [tieba](https://tieba.baidu.com/f?kw=%E8%8D%A3%E8%80%80%E6%88%98%E9%AD%82)*  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, dpi = 500)
+setwd("D:\\R\\textMining")
+Sys.setlocale(category = "LC_ALL", locale = "chs")
+                                       
+library(jiebaR)
+library(dplyr)
+library(openxlsx) # openxlsx perform quick than xlsx package without apply java
+library(stringr)
+library(tidytext)
+library(tidyr)
+library(igraph)
+library(ggraph)
+library(widyr)
+
+```
+
+## Bi-grams Analysis  
+
+```{r bigrams_data_processing, message=FALSE, warning=FALSE, include=FALSE}
+# read tieba review file
+reviews <- read.xlsx(xlsxFile = "Review_Level_Tieba.xlsx", sheet = "Sheet1")
+# clean data
+reviews_tbl <- reviews %>% 
+    tbl_df() %>%
+    mutate(review_new = str_replace_all(string = review,                        
+                                        pattern = '\\p{So}|\\p{Cn}', # remove emoji
+                                        replacement = '')) %>%
+    filter(nchar(review_new, type = "bytes") > 2)   # remove review with 2 bytes                            
+
+separator <- worker()
+# build custom word dictionary
+new_user_word(separator, c("1V1","2V2","4V4"), c("n","n","n"))                  
+stopWords_CN <- readLines('stopwords-zh.txt', encoding = "UTF-8")
+
+# user jiebaR to split words
+# build function to orgnize word by n consecutive word
+sentence_orgnize <- function (sentence, n = 2) {
+    s <- sentence
+    n <- n
+    s_length <- length(s)
+    f <- vector()
+    
+    for (i in 1:s_length) {
+        
+        temp <- vector()
+        s_split <- separator <= s[i]
+        nb_word <- length(s_split) - n + 1
+        
+        for (j in 1:nb_word) {
+            temp[j] <- paste0(s_split[j:(j+n-1)], collapse = "_")
+        }
+        
+        f[i] <- paste0(temp, collapse = " ")
+        
+    }
+    
+    return(f)
+}
+
+
+# unnest_tokens support chinese not as expected
+# build special tokenizer function to unnest
+tok_ch = function(t) str_split(t,"[ ]{1,}")                                      
+
+# bigrams analysis #############################################################
+review_words_bigrams <- reviews_tbl %>%
+    mutate(text_2 = sentence_orgnize(review_new, 2)) %>%
+    unnest_tokens(word, text_2, token = tok_ch)
+
+rev_bigrams <- review_words_bigrams %>%
+    separate(word, c("word1", "word2"))     # splite words into bigrams                                     
+
+rev_bigrams_filter <- rev_bigrams %>%
+    filter(!word1 %in% stopWords_CN) %>%
+    filter(!word2 %in% stopWords_CN)
+
+rev_bigrams_counts <- rev_bigrams_filter %>%
+    count(word1, word2, sort = T)
+```
+
+* The bigrams with TF less than 50 was ignore.  
+* Stopwords are removed.  
+* Following graph indicate users are talking about:  
+    + game play (e.g. "反破防", "地行杀", "etc")  
+    + Faction / Hero (e.g. "中国阵营", "中国英雄"，"女武神")  
+
+#### Relation Between Consecutive Words  
+
+```{r bigram_visualization, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.align="center"}
+# visualize 2 grams
+rev_bigrams_graph <- rev_bigrams_counts %>%            # construct igraph object                          
+    filter(n > 50) %>%
+    graph_from_data_frame()
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+set.seed(2018)
+ggraph(rev_bigrams_graph, layout = "fr") +
+    geom_edge_link(aes(edge_alpha = n, edge_width = n, edge_colour = n), 
+                   show.legend = FALSE,
+                   arrow = a, end_cap = circle(.07, 'inches')) +
+    geom_node_point(color = "lightblue", size = 3) +
+    geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+    theme_void()
+```
+
+#### Bi-grams Term Frequency
+
+```{r bigrams_stats, message=FALSE, warning=FALSE, echo=FALSE, paged.print=TRUE}
+rev_bigrams_counts %>%
+    select(from = word1, to = word2, freq = n)
+```
+
+## Co-occurring Analysis
+
+```{r word_correlation, message=FALSE, warning=FALSE, include=FALSE, paged.print=TRUE}
+# co-occur analaysis ###########################################################
+review_single <- reviews_tbl %>%
+    mutate(text_1 = sentence_orgnize(review_new, 1)) %>%
+    unnest_tokens(word, text_1, token = tok_ch) %>%
+    select(-(playtime:upvote)) %>%
+    filter(!word %in% stopWords_CN) %>%
+    filter(!word == "") %>%
+    filter(!word %in% stop_words$word)
+
+review_words <- review_single %>%
+    count(review_id,word, sort = T) %>%
+    arrange(word)
+
+word_pairs <- review_single %>%
+    pairwise_count(word, review_id, sort = T)
+
+# figure out the relation betwen words
+word_correlation <- review_single %>%                                           
+    group_by(word) %>%
+    filter(n() > 20) %>%
+    pairwise_cor(word, review_id, sort = T)
+```
+
+* Co-occuring is another method to see how often words appear together
+* the chart is helpful to find out the terms mis-splited (e.g. "瑟瑟发抖", "达本尼", "荣耀战魂", "女武神")
+
+#### Words Co-occuring Correlation
+```{r word_correlation_visulization, echo=FALSE, fig.width=10, fig.align="center"}
+word_correlation %>%
+    filter(correlation > .4) %>%   # filter out the high correlation                                             
+    graph_from_data_frame() %>%    # build igraph object                                             
+    ggraph(layout = "fr") +
+    geom_edge_link(aes(edge_alpha = correlation, edge_width = correlation, 
+                       edge_colour = correlation), 
+                   show.legend = FALSE) +
+    geom_node_point(color = "lightblue", size = 3) +
+    geom_node_text(aes(label = name), repel = T) +
+    theme_void()
+```
+*The correlation is measure by [Phi Coefficient](https://en.wikipedia.org/wiki/Phi_coefficient)*
+*Only involved pairs with correlation more than 0.4*
+
+#### Words Correlation Stats
+
+```{r word_correlation_stats, echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+word_correlation
+```
+
+## Topic Modeling
+
+* Try to apply [LDA](https://www.wikiwand.com/en/Latent_Dirichlet_allocation) method to find topics
+* 4 topics were clustered  
+    1.Kind of chitchat  
+    2.chinese faction and heroes  
+    3.Sales related stuff  
+    4.game play strategy related  
+
+```{r topic_wordCloud, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.width=10, fig.align="center"}
+review_dtm <- review_single %>%
+    count(review_id, word, sort = TRUE) %>%
+    cast_dtm(review_id, word, n)
+
+library(topicmodels)
+review_lda <- LDA(review_dtm, k = 4, control = list(seed = 1234))
+
+library(tidytext) # keep load the package at top
+review_topic <- tidy(review_lda, matrix = "beta")
+
+library(wordcloud)
+library(reshape2)
+topic_m <- review_topic %>%
+    acast(term~topic)
+
+comparison.cloud(term.matrix = topic_m,
+                 width = 480, height = 480,
+                 scale=c(3,.5),
+                 random.order=FALSE, 
+                # colors = c("#8CBB26", "#C4037D", "#F18E1C", "#2A71B0"),
+                 title.size=1.5, max.words=500)
+
+```
+
+
