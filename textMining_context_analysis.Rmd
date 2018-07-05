@@ -1,10 +1,13 @@
 ---
 title: "Keyword Context Analysis"
+author: "Jing.wang@ubisoft.com"
 date: "June 28, 2018"
 output: 
     html_document:
         theme: flatly
         df_print: paged
+        toc: true
+        toc_float: true
 ---
 
 *data source: [tieba](https://tieba.baidu.com/f?kw=%E8%8D%A3%E8%80%80%E6%88%98%E9%AD%82)*  
@@ -23,6 +26,7 @@ library(tidyr)
 library(igraph)
 library(ggraph)
 library(widyr)
+library(janitor) # convert excel number to date
 
 ```
 
@@ -30,14 +34,17 @@ library(widyr)
 
 ```{r bigrams_data_processing, message=FALSE, warning=FALSE, include=FALSE}
 # read tieba review file
-reviews <- read.xlsx(xlsxFile = "Review_Level_Tieba.xlsx", sheet = "Sheet1")
+reviews <- read.xlsx(xlsxFile = "Review_Level.xlsx", sheet = "Sheet1")
 # clean data
 reviews_tbl <- reviews %>% 
     tbl_df() %>%
-    mutate(review_new = str_replace_all(string = review,                        
+    mutate(
+        dt = excel_numeric_to_date(review_time, date_system = "modern"),
+        review_new = str_replace_all(string = review,                        
                                         pattern = '\\p{So}|\\p{Cn}', # remove emoji
                                         replacement = '')) %>%
-    filter(nchar(review_new, type = "bytes") > 2)   # remove review with 2 bytes                            
+    filter(nchar(review_new, type = "bytes") > 2)  %>%  # remove review with 2 bytes  
+    filter(dt > '2018-06-11')
 
 separator <- worker()
 # build custom word dictionary
@@ -92,8 +99,8 @@ rev_bigrams_counts <- rev_bigrams_filter %>%
 
 * The bigrams with TF less than 50 was ignore.  
 * Stopwords are removed.  
-* Following graph indicate users are talking about:  
-    + game play (e.g. "反破防", "地行杀", "etc")  
+* Following graph indicate users are talking about something like:  
+    + game play (e.g. "反破防", "转破防", "架爆")  
     + Faction / Hero (e.g. "中国阵营", "中国英雄"，"女武神")  
 
 #### Relation Between Consecutive Words  
@@ -150,6 +157,7 @@ word_correlation <- review_single %>%
 
 * Co-occuring is another method to see how often words appear together
 * the chart is helpful to find out the terms mis-splited (e.g. "瑟瑟发抖", "达本尼", "荣耀战魂", "女武神")
+* Interesting point is users were talking something about "逆水寒"， which is PC MMO developed by Netease
 
 #### Words Co-occuring Correlation
 ```{r word_correlation_visulization, echo=FALSE, fig.width=10, fig.align="center"}
@@ -164,7 +172,7 @@ word_correlation %>%
     geom_node_text(aes(label = name), repel = T) +
     theme_void()
 ```
-*The correlation is measure by [Phi Coefficient](https://en.wikipedia.org/wiki/Phi_coefficient)*
+*The correlation is measured by [Phi Coefficient](https://en.wikipedia.org/wiki/Phi_coefficient)*
 *Only involved pairs with correlation more than 0.4*
 
 #### Words Correlation Stats
@@ -176,11 +184,16 @@ word_correlation
 ## Topic Modeling
 
 * Try to apply [LDA](https://www.wikiwand.com/en/Latent_Dirichlet_allocation) method to find topics
-* 4 topics were clustered  
-    1.Kind of chitchat  
-    2.chinese faction and heroes  
-    3.Sales related stuff  
-    4.game play strategy related  
+* 5 topics were clustered as following graph
+    1. game play of newbie player 
+    2. game play strategy related   
+    3. Business Cooperation Between Ubi and tencent   
+    4. AI
+    5. Chinese Faction
+* Problems:
+    1. difficult to decide the number of topics
+    2. manual work to infer / summarize the topics
+
 
 ```{r topic_wordCloud, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, fig.width=10, fig.align="center"}
 review_dtm <- review_single %>%
@@ -188,7 +201,7 @@ review_dtm <- review_single %>%
     cast_dtm(review_id, word, n)
 
 library(topicmodels)
-review_lda <- LDA(review_dtm, k = 4, control = list(seed = 1234))
+review_lda <- LDA(review_dtm, k = 5, control = list(seed = 1234))
 
 library(tidytext) # keep load the package at top
 review_topic <- tidy(review_lda, matrix = "beta")
