@@ -159,4 +159,3 @@ remDr$close()
 # close taskend.exe by command running within R
 system('taskkill /fi "WindowTitle eq taskeng.exe"')
 print("success: scraping data from web")
-
